@@ -1,0 +1,110 @@
+---
+title: "geohclust"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{geohclust}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup,message=FALSE}
+library(geohclust)
+library(sf)
+library(dplyr)
+library(tibble)
+library(ggplot2)
+library(ggpubr)
+```
+
+
+```{r,fig.show='hold',out.width="90%",fig.width=6,fig.height=6}
+data("pres2022_t1_communes")
+deplist = c(56)
+dep = pres2022_t1_communes |> 
+  filter(INSEE_DEP %in% deplist) |>
+  select(p_gauche,p_droite,p_extreme_droite) |>
+  filter(!is.na(p_gauche))
+```
+
+```{r,fig.show='hold',out.width="90%",fig.width=16,fig.height=8}
+res=geohclust_poly(dep)
+plot(res)
+```
+
+
+```{r,fig.show='hold',out.width="100%",fig.width=8,fig.height=5.1}
+cl = cutree(res,h=7)
+dep$cl=cl
+map1=ggplot(dep)+geom_sf(aes(fill=p_gauche),size=0.2)+theme_bw()+scale_fill_distiller("Gauche :",palette = "Reds",direction = 1,limits=c(0,0.5))
+map2=ggplot(dep %>% group_by(cl) %>% summarise(p_gauche=mean(p_gauche)))+geom_sf(aes(fill=p_gauche),size=0.2)+theme_bw()+scale_fill_distiller("Gauche :",palette = "Reds",direction = 1,limits=c(0,0.5))
+ggarrange(map1,map2,nrow = 1,common.legend = TRUE)
+```
+
+
+```{r}
+fr = pres2022_t1_communes |> 
+  select(p_gauche,p_droite,p_extreme_droite,NOM) |>
+  filter(!is.na(p_gauche))
+```
+
+
+```{r,cache=TRUE}
+res=hclustgeo(fr)
+
+cl=cutree(res,2000)
+fr$cl = cl
+
+fr_agg=fr %>% group_by(cl) %>% 
+  summarise(p_gauche=mean(p_gauche),p_droite=mean(p_droite),p_extreme_droite=mean(p_extreme_droite))
+```
+
+```{r,fig.show='hold',out.width="100%",fig.width=8,fig.height=5.1,cache=TRUE,echo=FALSE}
+map1 = ggplot(fr)+geom_sf(aes(fill=p_gauche),size=0)+
+  theme_minimal()+
+  scale_fill_distiller("Gauche :",palette = "Reds",direction = 1,limits=c(0,0.75))+
+  coord_sf(crs = 2154)
+map2 = ggplot(fr_agg)+geom_sf(aes(fill=p_gauche),size=0)+
+  theme_minimal()+
+  scale_fill_distiller("Gauche :",palette = "Reds",direction = 1,limits=c(0,0.75))+
+  coord_sf(crs = 2154)
+ggarrange(map1,map2,ncol = 2,nrow =1,common.legend = TRUE)
+```
+
+```{r,fig.show='hold',out.width="100%",fig.width=8,fig.height=5.1,cache=TRUE,echo=FALSE}
+map3 = ggplot(fr)+
+  geom_sf(aes(fill=p_droite),size=0)+
+  theme_minimal()+
+  scale_fill_distiller("Droite :",palette = "YlGnBu",direction = 1,limits=c(0,0.75))+
+  coord_sf(crs = 2154)
+
+map4 = ggplot(fr_agg)+
+  geom_sf(aes(fill=p_droite),size=0)+
+  theme_minimal()+
+  scale_fill_distiller("Droite :",palette = "YlGnBu",direction = 1,limits=c(0,0.75))+
+  coord_sf(crs = 2154)
+
+ggarrange(map3,map4,ncol = 2,nrow =1,common.legend = TRUE)
+```
+
+```{r,fig.show='hold',out.width="100%",fig.width=8,fig.height=5.1,cache=TRUE,echo=FALSE}
+map5 = ggplot(fr)+
+  geom_sf(aes(fill=p_extreme_droite),size=0)+
+  theme_minimal()+
+  scale_fill_distiller("Ext-Droite :",palette = "YlOrBr",direction = 1,limits=c(0,0.75))+
+  coord_sf(crs = 2154)
+
+map6 = ggplot(fr_agg)+
+  geom_sf(aes(fill=p_extreme_droite),size=0)+
+  theme_minimal()+
+  scale_fill_distiller("Ext-Droite :",palette = "YlOrBr",direction = 1,limits=c(0,0.75))+
+  coord_sf(crs = 2154)
+
+ggarrange(map5,map6,ncol = 2,nrow =1,common.legend = TRUE)
+```

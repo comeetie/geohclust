@@ -1,0 +1,71 @@
+[
+    {
+        "file": "/home/comeetie/Projets/geohclust/src/hclustcc.cpp",
+        "file_last_write": 1651320924.0,
+        "definitions": [
+            {
+                "usr": "c:hclustcc.cpp@T@iPair",
+                "kind": 8,
+                "parent_name": "",
+                "name": "iPair",
+                "file": "/home/comeetie/Projets/geohclust/src/hclustcc.cpp",
+                "line": 5,
+                "column": 31
+            },
+            {
+                "usr": "c:@S@node",
+                "kind": 3,
+                "parent_name": "",
+                "name": "node",
+                "file": "/home/comeetie/Projets/geohclust/src/hclustcc.cpp",
+                "line": 7,
+                "column": 8
+            },
+            {
+                "usr": "c:@F@dist#$@N@Rcpp@S@MatrixRow>#VI14#S0_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "dist(NumericMatrix::Row, NumericMatrix::Row)",
+                "file": "/home/comeetie/Projets/geohclust/src/hclustcc.cpp",
+                "line": 17,
+                "column": 7
+            },
+            {
+                "usr": "c:@F@dist#$@N@Rcpp@S@Vector>#VI14#@N@Rcpp@ST>1#T@PreserveStorage#S0_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "dist(Rcpp::NumericVector, Rcpp::NumericVector)",
+                "file": "/home/comeetie/Projets/geohclust/src/hclustcc.cpp",
+                "line": 22,
+                "column": 7
+            },
+            {
+                "usr": "c:@F@dist#$@S@node#S0_#$@N@Rcpp@S@String#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "dist(node, node, Rcpp::String)",
+                "file": "/home/comeetie/Projets/geohclust/src/hclustcc.cpp",
+                "line": 26,
+                "column": 7
+            },
+            {
+                "usr": "c:@F@print_pq#$@N@std@S@multimap>#f#$@N@std@S@pair>#I#I#$@N@std@S@less>#f#$@N@std@S@allocator>#$@N@std@S@pair>#1f#S1_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "print_pq(std::multimap<float, std::pair<int, int>, std::less<float> >)",
+                "file": "/home/comeetie/Projets/geohclust/src/hclustcc.cpp",
+                "line": 40,
+                "column": 6
+            },
+            {
+                "usr": "c:@F@hclustcc_cpp#$@N@Rcpp@S@Vector>#VI19#@N@Rcpp@ST>1#T@PreserveStorage#$@N@Rcpp@S@Matrix>#VI14#@N@Rcpp@ST>1#T@PreserveStorage#$@N@Rcpp@S@String#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "hclustcc_cpp(Rcpp::List, Rcpp::NumericMatrix, Rcpp::String)",
+                "file": "/home/comeetie/Projets/geohclust/src/hclustcc.cpp",
+                "line": 48,
+                "column": 6
+            }
+        ]
+    }
+]

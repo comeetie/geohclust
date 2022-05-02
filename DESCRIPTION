@@ -1,0 +1,20 @@
+Package: geohclust
+Encoding:UTF-8
+Type: Package
+Title: Hierarchal clustering of geographic object with contiguity constraints
+Version: 1.0
+Date: 2022-04-29
+Author: Etienne Côme
+Maintainer: Etienne Côme <etienne.come@univ-eiffel.fr>
+Description: geohclust offers two functions geohclust_poly and geohclust_graph that enable the clustering of spatial data such as polygons with a hclust type approach but taking advantages of contiguity constraints. The contiguities naturaly create a sparsely connected graph that can be leveraged to speed-up the calculations and deal with more than 30000 polygons in seconds.   
+License: GPL (>= 2)
+Imports: Rcpp (>= 1.0.7), sf
+LinkingTo: Rcpp
+Depends: 
+    R (>= 2.10)
+LazyData: true
+Suggests: 
+    rmarkdown,
+    knitr
+VignetteBuilder: knitr
+RoxygenNote: 7.1.2.9000
