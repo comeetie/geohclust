@@ -216,18 +216,19 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
     
   }
   
-  NumericVector tree(2*V-1);
-  NumericVector tree_height(2*V-1);
-  NumericVector ids(2*V-1);
-  for(int i=0;i<(2*V-1);i++){
-    node cnode = graph[i];
-    tree(i)=cnode.father+1;
-    tree_height(i)=cnode.height;
-    ids(i)=cnode.id+1;
-  }
+  // Format additional output
+  // NumericVector tree(2*V-1);
+  // NumericVector tree_height(2*V-1);
+  // NumericVector ids(2*V-1);
+  // for(int i=0;i<(2*V-1);i++){
+  //   node cnode = graph[i];
+  //   tree(i)=cnode.father+1;
+  //   tree_height(i)=cnode.height;
+  //   ids(i)=cnode.id+1;
+  // }
+  // Named("tree",tree),Named("H",tree_height),Named("id",ids)
   
-  // 
-  return List::create(Named("tree",tree),Named("H",tree_height),Named("id",ids),Named("merge",merge),Named("height",height));
+  return List::create(Named("merge",merge),Named("height",height));
   
 }
 

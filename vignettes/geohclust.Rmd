@@ -39,11 +39,17 @@ plot(res)
 ```
 
 
-```{r,fig.show='hold',out.width="100%",fig.width=8,fig.height=5.1}
-cl = cutree(res,h=7)
-dep$cl=cl
+```{r}
+dep_agg = dep %>% 
+  add_column(cl= cutree(res,h=7)) %>% 
+  group_by(cl) %>% 
+  summarise(p_gauche=mean(p_gauche))
+```
+
+
+```{r,fig.show='hold',out.width="100%",fig.width=8,fig.height=5.1,echo=FALSE}
 map1=ggplot(dep)+geom_sf(aes(fill=p_gauche),size=0.2)+theme_bw()+scale_fill_distiller("Gauche :",palette = "Reds",direction = 1,limits=c(0,0.5))
-map2=ggplot(dep %>% group_by(cl) %>% summarise(p_gauche=mean(p_gauche)))+geom_sf(aes(fill=p_gauche),size=0.2)+theme_bw()+scale_fill_distiller("Gauche :",palette = "Reds",direction = 1,limits=c(0,0.5))
+map2=ggplot(dep_agg)+geom_sf(aes(fill=p_gauche),size=0.2)+theme_bw()+scale_fill_distiller("Gauche :",palette = "Reds",direction = 1,limits=c(0,0.5))
 ggarrange(map1,map2,nrow = 1,common.legend = TRUE)
 ```
 
@@ -56,13 +62,11 @@ fr = pres2022_t1_communes |>
 
 
 ```{r,cache=TRUE}
-res=hclustgeo(fr)
+res=geohclust_poly(fr)
 
-cl=cutree(res,2000)
-fr$cl = cl
+fr_agg2k=geocutree(res,2000)
 
-fr_agg=fr %>% group_by(cl) %>% 
-  summarise(p_gauche=mean(p_gauche),p_droite=mean(p_droite),p_extreme_droite=mean(p_extreme_droite))
+fr_agg10k=geocutree(res,1000)
 ```
 
 ```{r,fig.show='hold',out.width="100%",fig.width=8,fig.height=5.1,cache=TRUE,echo=FALSE}
@@ -70,7 +74,7 @@ map1 = ggplot(fr)+geom_sf(aes(fill=p_gauche),size=0)+
   theme_minimal()+
   scale_fill_distiller("Gauche :",palette = "Reds",direction = 1,limits=c(0,0.75))+
   coord_sf(crs = 2154)
-map2 = ggplot(fr_agg)+geom_sf(aes(fill=p_gauche),size=0)+
+map2 = ggplot(fr_agg2k)+geom_sf(aes(fill=p_gauche),size=0)+
   theme_minimal()+
   scale_fill_distiller("Gauche :",palette = "Reds",direction = 1,limits=c(0,0.75))+
   coord_sf(crs = 2154)
@@ -84,7 +88,7 @@ map3 = ggplot(fr)+
   scale_fill_distiller("Droite :",palette = "YlGnBu",direction = 1,limits=c(0,0.75))+
   coord_sf(crs = 2154)
 
-map4 = ggplot(fr_agg)+
+map4 = ggplot(fr_agg2k)+
   geom_sf(aes(fill=p_droite),size=0)+
   theme_minimal()+
   scale_fill_distiller("Droite :",palette = "YlGnBu",direction = 1,limits=c(0,0.75))+
@@ -100,7 +104,7 @@ map5 = ggplot(fr)+
   scale_fill_distiller("Ext-Droite :",palette = "YlOrBr",direction = 1,limits=c(0,0.75))+
   coord_sf(crs = 2154)
 
-map6 = ggplot(fr_agg)+
+map6 = ggplot(fr_agg2k)+
   geom_sf(aes(fill=p_extreme_droite),size=0)+
   theme_minimal()+
   scale_fill_distiller("Ext-Droite :",palette = "YlOrBr",direction = 1,limits=c(0,0.75))+

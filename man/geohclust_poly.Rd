@@ -14,8 +14,13 @@ geohclust_poly(df, method = "ward", scaling = "raw")
 \item{scaling}{default scaling of the features in zscore (default) or raw (i.e. no scaling)}
 }
 \value{
-an \code{\link{hclust::hclust}} like object
+an \code{\link{hclust::hclust}} like object with three additional slots
+\describe{
+  \item{leafs_geometry}{geometries of the dendrogram leafs as an sfc list}
+  \item{geotree}{geometries of the dendrogram no-leafs node as an sfc list}
+  \item{data}{The numeric data (eventually scaled used for the clustering)}
+}
 }
 \description{
-This function take an \code{\link{sf:sf}} data.frame and perfomrs hierarchical clustering with contiguity constraints.
+This function take an \code{\link{sf:sf}} data.frame and performs hierarchical clustering with contiguity constraints.
 }

@@ -7,13 +7,13 @@
 geohclust_graph(adjacencies_list, df, method = "ward", scaling = "raw")
 }
 \arguments{
-\item{adjacencies_list}{graph describing the coniguities between the rows of df as a list of adjacency}
+\item{adjacencies_list}{graph describing the contiguity between the rows of df as a list of adjacencies}
 
 \item{df}{a data.frame with numeric columns}
 
 \item{method}{linkage criterion in ward (default) or average, median}
 
-\item{scaling}{default scaling of the features in zscore (default) or raw (i.e. no scaling)}
+\item{scaling}{default scaling of the features in zscore or raw (i.e. no scaling, the default)}
 }
 \value{
 an \code{\link{hclust::hclust}} like object
