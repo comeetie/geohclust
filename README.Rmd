@@ -37,12 +37,10 @@ This is a basic example, we first prepare some spatial polygons data, here the r
 library(geohclust)
 library(dplyr)
 library(sf)
-data("pres2022_t1_communes")
+data("modesshare")
 deplist = c(37)
-dep = pres2022_t1_communes |> 
-  filter(INSEE_DEP %in% deplist) |>
-  select(p_gauche,p_droite,p_extreme_droite) |>
-  filter(!is.na(p_gauche))
+dep = modesshare |> 
+  filter(DEP %in% deplist) 
 ```
 
 

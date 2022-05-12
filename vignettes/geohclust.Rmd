@@ -25,44 +25,41 @@ library(ggpubr)
 
 
 ```{r,fig.show='hold',out.width="90%",fig.width=6,fig.height=6}
-data("pres2022_t1_communes")
-deplist = c(56)
-dep = pres2022_t1_communes |> 
-  filter(INSEE_DEP %in% deplist) |>
-  select(p_gauche,p_droite,p_extreme_droite) |>
-  filter(!is.na(p_gauche))
+data("modesshare")
+#deplist = c(75,77,78,91,92,93,95,94)
+deplist=37
+idf = modesshare |> 
+  filter(DEP %in% deplist)
 ```
 
 ```{r,fig.show='hold',out.width="90%",fig.width=16,fig.height=8}
-res=geohclust_poly(dep)
+res=geohclust_poly(idf,"ward")
 plot(res)
 ```
 
 
 ```{r}
-dep_agg = dep %>% 
-  add_column(cl= cutree(res,h=7)) %>% 
-  group_by(cl) %>% 
-  summarise(p_gauche=mean(p_gauche))
+idf_agg=geocutree(res,k=800) |> rowwise(cl) |> mutate(total = sum(c_across(nodep:tcom)))
+idf = idf |> rowwise(CODE_IRIS) |> mutate(total = sum(c_across(nodep:tcom)))
 ```
 
 
 ```{r,fig.show='hold',out.width="100%",fig.width=8,fig.height=5.1,echo=FALSE}
-map1=ggplot(dep)+geom_sf(aes(fill=p_gauche),size=0.2)+theme_bw()+scale_fill_distiller("Gauche :",palette = "Reds",direction = 1,limits=c(0,0.5))
-map2=ggplot(dep_agg)+geom_sf(aes(fill=p_gauche),size=0.2)+theme_bw()+scale_fill_distiller("Gauche :",palette = "Reds",direction = 1,limits=c(0,0.5))
+map1=ggplot(idf)+geom_sf(aes(fill=tcom/total),size=0.2)+theme_bw()+scale_fill_distiller("Gauche :",palette = "Reds",direction = 1,limits=c(0,0.75))
+map2=ggplot(idf_agg)+geom_sf(aes(fill=tcom/total),size=0.2)+theme_bw()+scale_fill_distiller("Gauche :",palette = "Reds",direction = 1,limits=c(0,0.75))
 ggarrange(map1,map2,nrow = 1,common.legend = TRUE)
 ```
 
 
 ```{r}
 fr = pres2022_t1_communes |> 
-  select(p_gauche,p_droite,p_extreme_droite,NOM) |>
-  filter(!is.na(p_gauche))
+  select(gauche,droite,extreme_droite) |>
+  filter(!is.na(gauche)& (droite+gauche+extreme_droite)>0)
 ```
 
 
 ```{r,cache=TRUE}
-res=geohclust_poly(fr)
+res=geohclust_poly(fr,method = "chi2")
 
 fr_agg2k=geocutree(res,2000)
 

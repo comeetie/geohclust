@@ -1,17 +1,128 @@
+#' @title Hierarchical clustering with contiguity constraints for temporal data
+#'
+#' @description This function take a data.frame and performs hierarchical clustering with contiguity constraints.
+#' @param df an \code{\link{sf:sf}} data.frame with polygons like features
+#' @param method linkage criterion in ward (default) or average, median
+#' @param scaling default scaling of the features in zscore (default) or raw (i.e. no scaling)
+#' @return an \code{\link{hclust::hclust}} like object with additional slots
+#' \describe{
+#'   \item{data}{The numeric data (eventually scaled) used for the clustering}
+#'   \item{centers}{The protoypes of each tree nodes}
+#' }
+#' @export
+geohclust_temp=function(df,method="ward",scaling="raw"){
+  nT = nrow(df)
+  nb = lapply(1:nT,\(it){
+    nei = c(it-1,it+1)
+    nei[nei>0 & nei<=nT]
+  })
+  hc_res=geohclust_graph(nb,df,method,scaling)
+  hc_res$call=sys.call()
+  hc_res
+}
+
+
+
+#' @title Hierarchical clustering with contiguity constraints for point data with delaunay links 
+#'
+#' @description This function take a data.frame and performs hierarchical clustering with contiguity constraints.
+#' @param df an \code{\link{sf:sf}} data.frame with polygons like features
+#' @param method linkage criterion in ward (default) or average, median
+#' @param scaling default scaling of the features in zscore (default) or raw (i.e. no scaling)
+#' @return an \code{\link{hclust::hclust}} like object with additional slots
+#' \describe{
+#'   \item{data}{The numeric data (eventually scaled) used for the clustering}
+#'   \item{centers}{The protoypes of each tree nodes}
+#'   \item{leafs_geometry}{geometries of the dendrogram leafs as an sfc list}
+#'   \item{geotree}{geometries of the dendrogram no-leafs node as an sfc list}
+#' }
+#' @export
+geohclust_delaunay=function(df,method="ward",scaling="raw"){
+  if(!is(df,"sf")){
+    stop("The dataset must be an sf data.frame.",call. = FALSE)
+  }
+  
+  if(!all(sapply(sf::st_geometry(df),function(u){sf::st_is(u,"POINT")}))){
+    stop("The dataset must contains only POINTS.",call. = FALSE)
+  }
+  df_nogeo=sf::st_drop_geometry(df)
+  
+  xy = st_coordinates(df)[,1:2]
+  delaunay = RTriangle::triangulate(RTriangle::pslg(xy))
+  nb=rep(list(c()),nrow(df))
+  for (il in 1:nrow(delaunay$E)){
+    r = delaunay$E[il,]
+    nb[[r[1]]]=c(nb[[r[1]]],r[2])
+    nb[[r[2]]]=c(nb[[r[2]]],r[1])
+  }
+
+  hc_res=geohclust_graph(nb,df_nogeo,method,scaling)
+  hc_res$call=sys.call()
+  # add geographical data
+  hc_res$leafs_geometry = sf::st_geometry(df)
+  hc_res$geotree = build_geotree(hc_res$merge,df)
+  class(hc_res)=c(class(hc_res),"geohclust")
+  hc_res
+}
+
+
+#' @title Hierarchical clustering with contiguity constraints for point data with distance threeshold links 
+#'
+#' @description This function take a data.frame and performs hierarchical clustering with contiguity constraints.
+#' @param df an \code{\link{sf:sf}} data.frame with polygons like features
+#' @param epsilon maximum distance allowed
+#' @param method linkage criterion in ward (default) or average, median
+#' @param scaling default scaling of the features in zscore (default) or raw (i.e. no scaling)
+#' @return an \code{\link{hclust::hclust}} like object with additional slots
+#' \describe{
+#'   \item{data}{The numeric data (eventually scaled) used for the clustering}
+#'   \item{centers}{The protoypes of each tree nodes}
+#'   \item{leafs_geometry}{geometries of the dendrogram leafs as an sfc list}
+#'   \item{geotree}{geometries of the dendrogram no-leafs node as an sfc list}
+#' }
+#' @export
+geohclust_dist=function(df,epsilon,method="ward",scaling="raw"){
+  if(!is(df,"sf")){
+    stop("The dataset must be an sf data.frame.",call. = FALSE)
+  }
+  
+  if(!all(sapply(sf::st_geometry(df),function(u){sf::st_is(u,"POINT")}))){
+    stop("The dataset must contains only POINTS.",call. = FALSE)
+  }
+  df_nogeo=sf::st_drop_geometry(df)
+  
+  # buid graph
+  buf = sf::st_buffer(df,epsilon)
+  nb = sf::st_intersects(df,buf)
+  class(nb)="list"
+  
+  hc_res=geohclust_graph(nb,df_nogeo,method,scaling)
+  hc_res$call=sys.call()
+  # add geographical data
+  hc_res$leafs_geometry = sf::st_geometry(df)
+  hc_res$geotree = build_geotree(hc_res$merge,df)
+  class(hc_res)=c(class(hc_res),"geohclust")
+  hc_res
+}
+
+
+
 #' @title Hierarchical clustering with contiguity constraints between polygons
 #'
 #' @description This function take an \code{\link{sf:sf}} data.frame and performs hierarchical clustering with contiguity constraints.
 #' @param df an \code{\link{sf:sf}} data.frame with polygons like features
 #' @param method linkage criterion in ward (default) or average, median
 #' @param scaling default scaling of the features in zscore (default) or raw (i.e. no scaling)
-#' @return an \code{\link{hclust::hclust}} like object with three additional slots
+#' @param adjacency adjacency type to use  "rook" (default) or queen
+#' @return an \code{\link{hclust::hclust}} like object with additional slots
 #' \describe{
 #'   \item{leafs_geometry}{geometries of the dendrogram leafs as an sfc list}
 #'   \item{geotree}{geometries of the dendrogram no-leafs node as an sfc list}
-#'   \item{data}{The numeric data (eventually scaled used for the clustering)}
+#'   \item{data}{The numeric data (eventually scaled) used for the clustering}
+#'   \item{centers}{The protoypes of each tree nodes}
 #' }
 #' @export
-geohclust_poly=function(df,method="ward",scaling="raw"){
+geohclust_poly=function(df,method="ward",adjacency="rook",scaling="raw"){
   
   if(!is(df,"sf")){
     stop("The dataset must be an sf data.frame.",call. = FALSE)
@@ -25,12 +136,17 @@ geohclust_poly=function(df,method="ward",scaling="raw"){
 
   
   # build graph
-  nb=sf::st_intersects(df,df)
+  # see https://github.com/r-spatial/sf/issues/234#issuecomment-300511129 and ?st_relate
+  if(adjacency=="rook"){
+    nb = sf::st_relate(df, df, pattern = "F***1****")
+  }else{
+    nb = sf::st_relate(df,df, pattern = "F***T****")
+  }
   class(nb)="list"
   hc_res=geohclust_graph(nb,df_nogeo,method,scaling)
   hc_res$call=sys.call()
   # add geographical data
-  hc_res$leafs_geometry = st_geometry(df)
+  hc_res$leafs_geometry = sf::st_geometry(df)
   hc_res$geotree = build_geotree(hc_res$merge,df)
   class(hc_res)=c(class(hc_res),"geohclust")
   hc_res
@@ -47,39 +163,57 @@ geohclust_poly=function(df,method="ward",scaling="raw"){
 #' @param df a data.frame with numeric columns
 #' @param method linkage criterion in ward (default) or average, median
 #' @param scaling default scaling of the features in zscore or raw (i.e. no scaling, the default)
-#' @return an \code{\link{hclust::hclust}} like object
+#' @return an \code{\link{hclust::hclust}} like object with additional slots
+#' \describe{
+#'   \item{data}{The numeric data (eventually scaled) used for the clustering}
+#'   \item{centers}{The protoypes of each tree nodes}
+#' }
 #' @export
 geohclust_graph = function(adjacencies_list,df,method="ward",scaling="raw"){
   
   
-  if(!(method %in% c("ward","average","median"))){
-    stop("The method argument must be ward or average")
+  if(!(method %in% c("ward","centroid","median","chi2","bayesmom"))){
+    stop("The method argument must be ward, centroid or median.")
   }
   
   if(!(scaling %in% c("zscore","raw"))){
-    stop("The scaling argument must be zscore or raw")
+    stop("The scaling argument must be zscore or raw.")
   }
-  # select only numeric features
-  num_feats = unlist(lapply(df,is.numeric))
-  if(sum(num_feats)!=ncol(df)){
-    warning("Some features were not numeric and have been removed from the clustering.",call. = FALSE)
-    df=df[,num_feats]
+  if(!(is(df,"data.frame")|is(df,"matrix"))){
+    stop("df must be a data.frame or a matrix")
   }
+  if(is(df,"matrix") & !is.numeric(df)){
+    stop("df must be numeric.")
+  }
+  
+  if(is(df,"data.frame")){
+    # remove geo in case
+    if(is(df,"sf")){
+      df= st_drop_geometry(df)
+    }
+    # select only numeric features
+    num_feats = unlist(lapply(df,is.numeric))
+    if(sum(num_feats)!=ncol(df)){
+      warning("Some features were not numeric and have been removed from the clustering.",call. = FALSE)
+      df=df[,num_feats]
+    }
+  }
+
   # check for missing values
   if(sum(is.na(df))>0){
     stop("Some regions have missing values and missing values are not allowed.",call. = FALSE)
   }
+  
   # scales
   if(scaling=="zscore"){
-    df_scaled = t(t(df)-colMeans(df))
-    df_scaled = t(t(df_scaled)/sqrt(colMeans(df_scaled^2)))
+    df_scaled = apply(df,2,\(col){(col-mean(col))/sd(col)})
   }else{
-    df_scaled = df
+    df_scaled = as.matrix(df)
   }
   
   nb_c = lapply(adjacencies_list,\(nei){nei-1})
   # run the algorithm
-  res=hclustcc_cpp(nb_c,as.matrix(df_scaled),method)
+  res=hclustcc_cpp(nb_c,df_scaled,method)
   
   # complete merge tree if constraints does not allow to reach K=1
   nbmissmerge = sum(rowSums(res$merge==0)==2)
@@ -94,7 +228,7 @@ geohclust_graph = function(adjacencies_list,df,method="ward",scaling="raw"){
     }
   }
   
-  
+
   # format the results in hclust form
   hc_res = list(merge=res$merge, 
                 height=cumsum(res$height),
@@ -103,7 +237,8 @@ geohclust_graph = function(adjacencies_list,df,method="ward",scaling="raw"){
                 call=sys.call(),
                 method=method,
                 dist.method="euclidean",
-                data=df_scaled)
+                data=res$data,
+                centers=res$centers)
   class(hc_res)  <- "hclust"
 
   hc_res
@@ -126,14 +261,15 @@ geocutree=function(tree,k = NULL, h= NULL){
   if(is.null(k) && is.null(h)){
     stop("At least one of k or h must be specified, k overrides h if both are given.")
   }
+  N=nrow(tree$merge)+1
   if(!is.null(h) & is.null(k)){
-    k = which(tree$height>h)[1]
+    k <- N + 1L - apply(outer(c(tree$height, Inf), h, `>`),2, which.max)
   }
   cl = cutree(tree,k=k)
-  Xg = aggregate(tree$data,list(cl),mean)
-  N=nrow(tree$merge)+1
+
   istart = which(!duplicated(cl))
   clust_geo = list()
+  clust_x = matrix(0,nrow=k,ncol=ncol(tree$data))
   ck=1
   for (i in istart){
     f = -i
@@ -146,12 +282,15 @@ geocutree=function(tree,k = NULL, h= NULL){
     }
     if(cnode>0){
       clust_geo[[ck]]=tree$geotree[[cnode]]
+      clust_x[ck,]=tree$centers[cnode,]
     }else{
       clust_geo[[ck]]=tree$leafs_geometry[[-cnode]]
+      clust_x[ck,]=tree$data[-cnode,]
     }
     ck=ck+1
   }
-  st_sf(cl=1:k,Xg[,-1],geometry=sf::st_as_sfc(clust_geo,crs=st_crs(tree$leafs_geometry)))
+  colnames(clust_x)=colnames(tree$centers)
+  sf::st_sf(cl=1:k,clust_x,geometry=sf::st_as_sfc(clust_geo,crs=sf::st_crs(tree$leafs_geometry)))
 }
 
 
