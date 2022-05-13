@@ -51,6 +51,14 @@ float distchi2(NumericVector x1,NumericVector x2,NumericVector w){
 }
 
 float dist(node n1,node n2,NumericVector w,String method){
+  // be sure to be symetric ! even with numerical problems
+  if(n1.id>n2.id){
+    // swap 
+    node nt;
+    nt = n1;
+    n1 = n2;
+    n2 = nt;
+  }
   float d=0;
   if(method=="ward"){
     d=static_cast< float >(n1.size*n2.size)/static_cast< float >(n1.size+n2.size)*dist(n1.x,n2.x);
@@ -80,13 +88,35 @@ void print_pq(std::multimap<float,std::pair<int, int>,std::less<float>> priority
   }
 }
 
+void print_pqhead(std::multimap<float,std::pair<int, int>,std::less<float>> priority_queue){
+  int i =0;
+  for(auto it=priority_queue.begin();it!=priority_queue.end();it++){
+    std::pair<int,int> edge = it->second;
+    Rcout << edge.first << " - " << edge.second << ":" << it->first << std::endl;
+    if(i>10){
+      break;
+    }
+    i++;
+  }
+}
+
 // [[Rcpp::export]]
 List hclustcc_cpp(List nb,NumericMatrix X,String method) {
 
+  
+  // TODO collision detection a priori and priority queue as a map not multimap
+  // TODO isolated island completion 
+  // TODO interface // prior specification 
+  // TODO specific class for bayesian results optimal k* and test value results height definition ? 
+  // TODO bayesdgmm method ?
+  // TODO look at heller empirical bayes for prior specification
+  // TODO test and check chi2 
+  
   int V = X.nrow();
   int D = X.ncol();
   int T = sum(X);
 
+  // compute data statistics needed for priors or distance
   NumericVector w(D);
   if(method=="chi2"){
     for(int d=0; d<D; ++d){
@@ -121,6 +151,7 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
           node vnode;
           vnode.x = x2;
           vnode.size=1;
+          vnode.id=j;
           if(method=="bayesmom"){
             vnode.d=0;
             vnode.pi=0;
@@ -128,12 +159,28 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
             vnode.Lt  = vnode.pi+vnode.L;
             vnode.r   = 0;
           }
+          
+          // identical values not allowed, break ties
+          // the graph must be symetric
           float d = dist(cnode,vnode,w,method);
           //Rcout << d << std::endl;
+          // if(priority_queue.find(d)!=priority_queue.end()){           
+          //   Rcout << "collision" << std::endl;
+          //   d=d+1e-10;
+          // }
+          // auto nei = graph[i].neibs.find(j);
+          // if(nei!=graph[i].neibs.end()){
+          //   //auto nei = graph[i].neibs.find(j);
+          //   Rcout << "link already exist : "<< i << "-" << nei->first << ":" <<nei->second <<std::endl;
+          //   d = nei->second;
+          //   //d=d+1e-10;
+          //   
+          // }
           cnode.neibs.insert(std::make_pair(j,d));
           if(i<j){
             priority_queue.insert(std::make_pair(d,std::make_pair(i,j)));
           }
+          
         }
       }
       graph[i]=cnode;
@@ -141,7 +188,6 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
   }
   
 
-  //Rcout << "--- Init end ----" << std::endl;
   // Lets Merge !
   float H =0;
   NumericMatrix merge(V-1,2);
@@ -152,8 +198,6 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
 
     int node_id = V+imerge;
     auto best_merge = priority_queue.begin();
-    //Rcout << "###############"  << std::endl;
-    //print_pq(priority_queue);
     
     
     // deal with isolated regions (no more merge possible and node)
@@ -170,10 +214,6 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
     std::pair<int,int> edge = best_merge->second; 
     int g = std::get<0>(edge);
     int h = std::get<1>(edge);
-    
-    
-    
-    Rcout << "Merge :" << g << "--" << h << std::endl;
     
     
     
@@ -196,7 +236,7 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
     // create a new node
     node new_node;
     
-    // update the stored position
+    // update the stored data
     if(method=="ward" || method=="centroid"){
         new_node.x  = (graph[g].size*graph[g].x + graph[h].size*graph[h].x)/(graph[g].size+graph[h].size);      
     }else if(method=="median"){
@@ -213,18 +253,20 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
     }else{
         stop("Unknown method");
     }
-
+    
+    // same for all methods
     new_node.id = node_id;
     new_node.size=graph[g].size+graph[h].size;
     new_node.height = H;
     new_node.father=0;
     node node_g = graph[g];
     node node_h = graph[h];
-    // stockage de la fusion
+    
+    // store the merge
     graph[g].father = node_id;
     graph[h].father = node_id;
     
-
+    // update the graph and priority queue
     for(auto nei_g = node_g.neibs.begin();nei_g!=node_g.neibs.end();nei_g++){
       
       int i = g;
@@ -241,21 +283,41 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
           break;
         }
       }
-      // if(!found){
-      //   Rcout << "missedlink" << std::endl;
-      //   Rcout << i << "-" << j << ":" << v << std::endl;
-      //   Rcout << "---- pq ----" << std::endl;
-      //   print_pq(priority_queue);
-      // }
-    
-
+      if(!found){
+        Rcout << "missedlink" << std::endl;
+        Rcout << i << "-" << j << ":" << v << std::endl;
+        Rcout << "---- pq ----" << std::endl;
+        std::multimap<float,std::pair<int, int>,std::less<float>>::iterator it,itlow,itup;
+        itlow = priority_queue.lower_bound(v-1e-3);  // itlow points to b
+        itup =  priority_queue.upper_bound(v+1e-3);   // itup points to e (not d)
+        // print range [itlow,itup):
+        for (it=itlow; it!=itup; ++it){
+          float d = (*it).first;
+          std::pair<int,int> edge = (*it).second;
+          Rcout << std::get<0>(edge) << "--" << std::get<1>(edge) << ":" << d << std::endl;
+        }
+        stop("Missed link");
+      }
+      
       // old link deletion in graph
       graph[j].neibs.erase(i);
       // new links in graph
       if(j!=h){
         // distance calculation
         float d = dist(new_node,graph[j],w,method);
-        //Rcout << d << std::endl;
+        // if(priority_queue.find(d)!=priority_queue.end()){
+        //   Rcout << "collision" << std::endl;
+        //   d=d+1e-10;
+        // }
+        // auto nei = graph[i].neibs.find(j);
+        // if(nei!=graph[i].neibs.end()){
+        //   //auto nei = graph[i].neibs.find(j);
+        //   Rcout << "link already exist : "<< i << "-" << nei->first << ":" <<nei->second <<std::endl;
+        //   d = nei->second;
+        //   //auto nei = graph[i].neibs.find(j);
+        //   //d=d+1e-10;
+        //   
+        // }
         new_node.neibs.insert(std::make_pair(j,d));
         graph[j].neibs.insert(std::make_pair(node_id,d));
       }
@@ -280,12 +342,6 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
           break;
         }
       }
-      // if(!found){
-      //   Rcout << "missedlink" << std::endl;
-      //   Rcout << i << "-" << j << ":" << v << std::endl;
-      //   Rcout << "---- pq ----" << std::endl;
-      //   print_pq(priority_queue);
-      // }
       
 
       // old link deletion in graph
@@ -293,7 +349,20 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
       
       // new links in graphs
       if(j!=g){
+        
         float d = dist(new_node,graph[j],w,method);
+        // if(priority_queue.find(d)!=priority_queue.end()){           
+        //   Rcout << "collision" << std::endl;
+        //   d=d+0.00000001;
+        // }
+        // auto nei = graph[i].neibs.find(j);
+        // if(nei!=graph[i].neibs.end()){
+        //   //auto nei = graph[i].neibs.find(j);
+        //   Rcout << "link already exist : "<< i << "-" << nei->first << ":" <<nei->second <<std::endl;
+        //   d = nei->second;
+        //   //auto nei = graph[i].neibs.find(j);
+        //   //d=d+1e-10;
+        // }
         new_node.neibs.insert(std::make_pair(j,d));
         graph[j].neibs.insert(std::make_pair(node_id,d));
       }
@@ -311,8 +380,10 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
       priority_queue.insert(std::make_pair(d,std::make_pair(j,node_id)));
     }
 
-    
   }
+  
+  
+  
   
   // Export Centers
   NumericMatrix centers(V-1,X.ncol());
@@ -322,7 +393,7 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
   }
   CharacterVector ch = colnames(X);
   colnames(centers) = ch;
-  
+
   return List::create(Named("merge",merge),Named("height",height),Named("data",X),Named("centers",centers));
   
 }

@@ -8,17 +8,17 @@
         "-I/usr/local/include",
         "-I/usr/include/x86_64-linux-gnu",
         "-I/usr/include",
-        "-I/home/comeetie/R/x86_64-pc-linux-gnu-library/4.1/Rcpp/include",
+        "-I/home/comeetie/R/x86_64-pc-linux-gnu-library/4.2/Rcpp/include",
         "-std=gnu++14",
         "-I/usr/share/R/include",
         "-DNDEBUG",
         "-fpic",
-        "-fdebug-prefix-map=/build/r-base-QwogzP/r-base-4.1.1=.",
+        "-fdebug-prefix-map=/build/r-base-apO4Ea/r-base-4.2.0=.",
         "-fstack-protector-strong",
         "-D_FORTIFY_SOURCE=2"
     ],
     "pch": "Rcpp",
     "is_cpp": true,
-    "hash": "1651523055",
+    "hash": "1652381536",
     "compiler": "1465303102426788192"
 }
