@@ -16,7 +16,11 @@ geohclust_graph(adjacencies_list, df, method = "ward", scaling = "raw")
 \item{scaling}{default scaling of the features in zscore or raw (i.e. no scaling, the default)}
 }
 \value{
-an \code{\link{hclust::hclust}} like object
+an \code{\link{stats::hclust}} like object with additional slots
+\describe{
+  \item{data}{The numeric data (eventually scaled) used for the clustering}
+  \item{centers}{The protoypes of each tree nodes}
+}
 }
 \description{
 This function take an data.frame and performs hierarchical clustering with contiguity 

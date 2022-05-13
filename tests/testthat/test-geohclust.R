@@ -92,7 +92,7 @@ test_that("ward polygons", {
   testthat::expect_equal(sf::st_equals(geoagg$geometry[1],sf::st_union(df.sf[cutree(geohc,2)==1,]))[[1]],1)
   geoaggX=as.matrix(geoagg[,-1] |> sf::st_drop_geometry())
   cm=colMeans(X[cutree(geohc,2)==1,])
-  names(cm)=1:2
+  names(cm)=colnames(geoaggX)
   testthat::expect_equal(geoaggX[1,],cm)
   df.sf[1,1:2] = c(-5,-5) 
   geohc=geohclust::geohclust_poly(df.sf,method = "ward")
@@ -104,7 +104,7 @@ test_that("ward polygons", {
   testthat::expect_equal(sf::st_equals(geoagg$geometry[1],sf::st_union(df.sf[cutree(geohc,3)==1,]))[[1]],1)
   geoaggX=as.matrix(geoagg[,-1] |> sf::st_drop_geometry())
   cm=colMeans(X[cutree(geohc,3)==2,])
-  names(cm)=1:2
+  names(cm)=colnames(geoaggX)
   testthat::expect_equal(geoaggX[2,],cm)
 })
 
@@ -129,7 +129,7 @@ test_that("ward polygons queen/rook", {
   testthat::expect_equal(sf::st_equals(geoagg$geometry[1],sf::st_union(df.sf[cutree(geohc,2)==1,]))[[1]],1)
   geoaggX=as.matrix(geoagg[,-1] |> sf::st_drop_geometry())
   cm=colMeans(X[cutree(geohc,2)==1,])
-  names(cm)=1:2
+  names(cm)=colnames(geoaggX)
   testthat::expect_equal(geoaggX[1,],cm)
   
   
@@ -143,21 +143,9 @@ test_that("ward polygons queen/rook", {
   testthat::expect_equal(sf::st_equals(geoagg$geometry[1],sf::st_union(df.sf[cutree(geohc,2)==1,]))[[1]],1)
   geoaggX=as.matrix(geoagg[,-1] |> sf::st_drop_geometry())
   cm=colMeans(X[cutree(geohc,2)==1,])
-  names(cm)=1:2
+  names(cm)=colnames(geoaggX)
   testthat::expect_equal(geoaggX[1,],cm)
 })
 
-test_that("bayesmom no constraints", {
-  set.seed(19037561)
-  N <- 50
-  K <- 2
-  pi <- rep(1 / K, K)
-  mu <- cbind(diag(rep(5, K)), matrix(0, K, 20)) + matrix(runif(K * (20 + K)), K, 20 + K)
-  mm <- greed::rmm(N, pi, mu, 15)
-  X <- data.frame(as.matrix(mm$x))
-  N=nrow(X)
-  nb=lapply(1:N,\(i){setdiff(1:N,i)})
-  geohc=geohclust::geohclust_graph(nb,X,method = "bayesmom")
-  plot(geohc)
-})
+
 

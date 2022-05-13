@@ -104,10 +104,10 @@ void print_pqhead(std::multimap<float,std::pair<int, int>,std::less<float>> prio
 List hclustcc_cpp(List nb,NumericMatrix X,String method) {
 
   
-  // TODO collision detection a priori and priority queue as a map not multimap
+  // TODO specific class for bayesian results optimal k* and test value results, height definition ? 
+  // TODO collision detection a priori and priority queue as a map not multimap ? being consistent with hclust strategy for ties ?
   // TODO isolated island completion 
   // TODO interface // prior specification 
-  // TODO specific class for bayesian results optimal k* and test value results height definition ? 
   // TODO bayesdgmm method ?
   // TODO look at heller empirical bayes for prior specification
   // TODO test and check chi2 
@@ -116,6 +116,9 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
   int D = X.ncol();
   int T = sum(X);
 
+  // cst added in case of collision
+  // float collision_eps=1e-12;
+  
   // compute data statistics needed for priors or distance
   NumericVector w(D);
   if(method=="chi2"){
@@ -163,18 +166,14 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
           // identical values not allowed, break ties
           // the graph must be symetric
           float d = dist(cnode,vnode,w,method);
-          //Rcout << d << std::endl;
-          // if(priority_queue.find(d)!=priority_queue.end()){           
-          //   Rcout << "collision" << std::endl;
-          //   d=d+1e-10;
+          // if(priority_queue.find(d)!=priority_queue.end()){
+          //   //Rcout << "collision" << std::endl;
+          //   d=d+collision_eps;
           // }
           // auto nei = graph[i].neibs.find(j);
           // if(nei!=graph[i].neibs.end()){
-          //   //auto nei = graph[i].neibs.find(j);
-          //   Rcout << "link already exist : "<< i << "-" << nei->first << ":" <<nei->second <<std::endl;
+          //   //Rcout << "link already exist : "<< i << "-" << nei->first << ":" <<nei->second <<std::endl;
           //   d = nei->second;
-          //   //d=d+1e-10;
-          //   
           // }
           cnode.neibs.insert(std::make_pair(j,d));
           if(i<j){
@@ -272,31 +271,14 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
       int i = g;
       int j = nei_g->first;
       float v = nei_g->second;
-      bool found = false;
       // old link deletion in priority_queue
       auto search = priority_queue.equal_range(v);
       for (auto s = search.first; s != search.second; ++s){
         std::pair<int,int> edge = s->second;
         if(std::get<0>(edge)==std::min(i,j) && std::get<1>(edge)==std::max(i,j)){
           priority_queue.erase(s);
-          found=true;
           break;
         }
-      }
-      if(!found){
-        Rcout << "missedlink" << std::endl;
-        Rcout << i << "-" << j << ":" << v << std::endl;
-        Rcout << "---- pq ----" << std::endl;
-        std::multimap<float,std::pair<int, int>,std::less<float>>::iterator it,itlow,itup;
-        itlow = priority_queue.lower_bound(v-1e-3);  // itlow points to b
-        itup =  priority_queue.upper_bound(v+1e-3);   // itup points to e (not d)
-        // print range [itlow,itup):
-        for (it=itlow; it!=itup; ++it){
-          float d = (*it).first;
-          std::pair<int,int> edge = (*it).second;
-          Rcout << std::get<0>(edge) << "--" << std::get<1>(edge) << ":" << d << std::endl;
-        }
-        stop("Missed link");
       }
       
       // old link deletion in graph
@@ -305,18 +287,15 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
       if(j!=h){
         // distance calculation
         float d = dist(new_node,graph[j],w,method);
+        // collision detection
         // if(priority_queue.find(d)!=priority_queue.end()){
-        //   Rcout << "collision" << std::endl;
-        //   d=d+1e-10;
+        //   //Rcout << "collision" << std::endl;
+        //   d=d+collision_eps;
         // }
         // auto nei = graph[i].neibs.find(j);
         // if(nei!=graph[i].neibs.end()){
-        //   //auto nei = graph[i].neibs.find(j);
-        //   Rcout << "link already exist : "<< i << "-" << nei->first << ":" <<nei->second <<std::endl;
+        //   //Rcout << "link already exist : "<< i << "-" << nei->first << ":" <<nei->second <<std::endl;
         //   d = nei->second;
-        //   //auto nei = graph[i].neibs.find(j);
-        //   //d=d+1e-10;
-        //   
         // }
         new_node.neibs.insert(std::make_pair(j,d));
         graph[j].neibs.insert(std::make_pair(node_id,d));
@@ -331,7 +310,6 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
       int i = h;
       int j = nei_h->first;
       float v = nei_h->second;
-      bool found = false;
 
       // old link deletion in priority_queue
       auto search = priority_queue.equal_range(v);
@@ -351,17 +329,14 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
       if(j!=g){
         
         float d = dist(new_node,graph[j],w,method);
-        // if(priority_queue.find(d)!=priority_queue.end()){           
-        //   Rcout << "collision" << std::endl;
-        //   d=d+0.00000001;
+        // if(priority_queue.find(d)!=priority_queue.end()){
+        //   //Rcout << "collision" << std::endl;
+        //   d=d+collision_eps;
         // }
         // auto nei = graph[i].neibs.find(j);
         // if(nei!=graph[i].neibs.end()){
-        //   //auto nei = graph[i].neibs.find(j);
-        //   Rcout << "link already exist : "<< i << "-" << nei->first << ":" <<nei->second <<std::endl;
+        //   //Rcout << "link already exist : "<< i << "-" << nei->first << ":" <<nei->second <<std::endl;
         //   d = nei->second;
-        //   //auto nei = graph[i].neibs.find(j);
-        //   //d=d+1e-10;
         // }
         new_node.neibs.insert(std::make_pair(j,d));
         graph[j].neibs.insert(std::make_pair(node_id,d));
@@ -387,14 +362,22 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
   
   // Export Centers
   NumericMatrix centers(V-1,X.ncol());
+  NumericVector r(V-1);
+  NumericVector Ll(V-1);
+  NumericVector Lt(V-1);
   for(int i=V;i<(2*V-1);i++){
     node cnode = graph[i];
     centers(i-V,_)=cnode.x;
+    if(method=="bayesmom"){
+      r(i-V)=cnode.r;
+      Ll(i-V)=cnode.L;
+      Lt(i-V)=cnode.Lt;
+    }
   }
   CharacterVector ch = colnames(X);
   colnames(centers) = ch;
 
-  return List::create(Named("merge",merge),Named("height",height),Named("data",X),Named("centers",centers));
+  return List::create(Named("merge",merge),Named("height",height),Named("data",X),Named("centers",centers),Named("teststatistic",r),Named("Ll",Ll),Named("Lt",Lt));
   
 }
 
