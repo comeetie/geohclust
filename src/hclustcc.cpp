@@ -1,84 +1,9 @@
 #include <Rcpp.h>
+#include "GTMethod.h"
+#include "node.h"
 using namespace Rcpp;
 
-// iPair ==> Integer Pair
-typedef std::pair<int, float> iPair;
 
-struct node
-{
-  int id;
-  int size;
-  NumericVector x;
-  int father;
-  float height;
-  float d;
-  float pi;
-  float L;
-  float Lt;
-  float r;
-  std::map<int,float,std::greater<float>> neibs;
-};
-
-
-float log_dirichlet_multinom(NumericVector x){
-  float beta = 1;
-  int d = x.length();
-  float icl_emiss = lgamma(d*beta)+sum(lgamma(x+beta))-d*lgamma(beta)-lgamma(sum(x+beta));
-  return icl_emiss;
-}
-
-float ladd(float a, float b){
-  float res = 0;
-  if(a>b){
-    res = a+log(1+exp(b-a));
-  }else{
-    res = b+log(1+exp(a-b));
-  }
-  return res;
-}
-
-float dist(NumericVector x1,NumericVector x2){
-  return sum((x1-x2)*(x1-x2));
-}
-
-float distchi2(NumericVector x1,NumericVector x2,NumericVector w){
-  if(sum(x1)==0||sum(x2)==0){
-    return 0;
-  }
-  NumericVector x1n = x1 / sum(x1);
-  NumericVector x2n = x2 / sum(x2);
-  return sum(w*(x1n-x2n)*(x1n-x2n));
-}
-
-float dist(node n1,node n2,NumericVector w,String method){
-  // be sure to be symetric ! even with numerical problems
-  if(n1.id>n2.id){
-    // swap 
-    node nt;
-    nt = n1;
-    n1 = n2;
-    n2 = nt;
-  }
-  float d=0;
-  if(method=="ward"){
-    d=static_cast< float >(n1.size*n2.size)/static_cast< float >(n1.size+n2.size)*dist(n1.x,n2.x);
-  }else if(method=="centroid" || method=="median"){
-    d=dist(n1.x,n2.x);
-  }else if(method=="chi2"){
-    d=distchi2(n1.x,n2.x,w);
-  }else if(method=="bayesmom"){
-    float dn   = ladd(lgamma(n1.size+n2.size),n1.d+n2.d);
-    float pi   = lgamma(n1.size+n2.size)-dn;
-    NumericVector x   = n1.x + n2.x;
-    float L    = log_dirichlet_multinom(x);
-    float Lt   = ladd(pi+L,-pi+n1.Lt+n2.Lt);
-    // reverse for min heap
-    d = Lt-pi-L;
-  }else{
-    stop("Unknown method");
-  } 
-  return d;
-}
 
 
 void print_pq(std::multimap<float,std::pair<int, int>,std::less<float>> priority_queue){
@@ -100,9 +25,32 @@ void print_pqhead(std::multimap<float,std::pair<int, int>,std::less<float>> prio
   }
 }
 
-// [[Rcpp::export]]
-List hclustcc_cpp(List nb,NumericMatrix X,String method) {
 
+GTMethod::GTMethod * init_method(List method_obj){
+  GTMethod::GTMethod * method;
+  if(!method_obj.inherits("gtmethod")){
+    stop("Method should be a gtmethod object.");
+  }
+  std::string method_name = method_obj["method"];
+  if(method_name=="ward"){
+    method = new GTMethod::ward();
+  }else if(method_name=="centroid"){
+    method = new GTMethod::centroid();
+  }else if(method_name=="median"){
+    method = new GTMethod::median();
+  }else if(method_name=="chisq"){
+    method = new GTMethod::chisq(); 
+  }else if(method_name=="bayes_mom"){
+    float beta = method_obj["beta"];
+    method = new GTMethod::bayes_mom(beta); 
+  }
+  return method;
+}
+
+//[[Rcpp::export]]
+List hclustcc_cpp(const List nb,const NumericMatrix X,List method_obj) {
+
+  
   
   // TODO specific class for bayesian results optimal k* and test value results, height definition ? 
   // TODO collision detection a priori and priority queue as a map not multimap ? being consistent with hclust strategy for ties ?
@@ -114,18 +62,13 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
   
   int V = X.nrow();
   int D = X.ncol();
-  int T = sum(X);
 
   // cst added in case of collision
   // float collision_eps=1e-12;
   
   // compute data statistics needed for priors or distance
-  NumericVector w(D);
-  if(method=="chi2"){
-    for(int d=0; d<D; ++d){
-      w(d)=T/sum(X(_,d));
-    }
-  }
+  GTMethod::GTMethod * method = init_method(method_obj);
+  method->init(X);
 
   
   // data-structure creation
@@ -134,47 +77,12 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
   for(int i=0; i<nb.length(); ++i){
     if(nb[i]!=R_NilValue) {
       NumericVector nbi = as<NumericVector>(nb[i]);
-      NumericMatrix::Row x1 = X(i,_);
-      node cnode;
-      cnode.x = x1;
-      cnode.id = i;
-      cnode.size=1;
-      cnode.height=0;
-      if(method=="bayesmom"){
-        cnode.d=0;
-        cnode.pi=0;
-        cnode.L   = log_dirichlet_multinom(cnode.x);
-        cnode.Lt  = cnode.pi+cnode.L;
-        cnode.r   = 0;
-      }
+      node cnode = method->init_node(i,X(i,_));
       for(int n=0; n<nbi.length(); ++n){
         int j = nbi[n];
         if(i!=j){
-          NumericMatrix::Row x2 = X(j,_);
-          node vnode;
-          vnode.x = x2;
-          vnode.size=1;
-          vnode.id=j;
-          if(method=="bayesmom"){
-            vnode.d=0;
-            vnode.pi=0;
-            vnode.L   = log_dirichlet_multinom(vnode.x);
-            vnode.Lt  = vnode.pi+vnode.L;
-            vnode.r   = 0;
-          }
-          
-          // identical values not allowed, break ties
-          // the graph must be symetric
-          float d = dist(cnode,vnode,w,method);
-          // if(priority_queue.find(d)!=priority_queue.end()){
-          //   //Rcout << "collision" << std::endl;
-          //   d=d+collision_eps;
-          // }
-          // auto nei = graph[i].neibs.find(j);
-          // if(nei!=graph[i].neibs.end()){
-          //   //Rcout << "link already exist : "<< i << "-" << nei->first << ":" <<nei->second <<std::endl;
-          //   d = nei->second;
-          // }
+          node vnode = method->init_node(j,X(j,_));
+          float d = method->dist(cnode,vnode);
           cnode.neibs.insert(std::make_pair(j,d));
           if(i<j){
             priority_queue.insert(std::make_pair(d,std::make_pair(i,j)));
@@ -213,10 +121,9 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
     std::pair<int,int> edge = best_merge->second; 
     int g = std::get<0>(edge);
     int h = std::get<1>(edge);
+    node node_g = graph[g];
+    node node_h = graph[h];
     
-    
-    
-    H = H + best_merge->first;
     height[imerge]=best_merge->first;
     
     // strore merge move in hclust format with 1 based indices
@@ -233,37 +140,7 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
     }
     
     // create a new node
-    node new_node;
-    
-    // update the stored data
-    if(method=="ward" || method=="centroid"){
-        new_node.x  = (graph[g].size*graph[g].x + graph[h].size*graph[h].x)/(graph[g].size+graph[h].size);      
-    }else if(method=="median"){
-        new_node.x  = (graph[g].x + graph[h].x)/2;   
-    }else if(method=="chi2"){
-        new_node.x = graph[g].x + graph[h].x;
-    }else if(method=="bayesmom"){
-        new_node.d   = ladd(lgamma(graph[g].size+graph[h].size),graph[g].d+graph[h].d);
-        new_node.pi  = lgamma(graph[g].size+graph[h].size)-new_node.d;
-        new_node.x   = graph[g].x + graph[h].x;
-        new_node.L   = log_dirichlet_multinom(new_node.x);
-        new_node.Lt  = ladd(new_node.pi+new_node.L,-new_node.pi+graph[g].Lt+graph[h].Lt);
-        new_node.r   = new_node.pi+new_node.L-new_node.Lt;
-    }else{
-        stop("Unknown method");
-    }
-    
-    // same for all methods
-    new_node.id = node_id;
-    new_node.size=graph[g].size+graph[h].size;
-    new_node.height = H;
-    new_node.father=0;
-    node node_g = graph[g];
-    node node_h = graph[h];
-    
-    // store the merge
-    graph[g].father = node_id;
-    graph[h].father = node_id;
+    node new_node = method->merge(node_id,node_g,node_h,height[imerge]);
     
     // update the graph and priority queue
     for(auto nei_g = node_g.neibs.begin();nei_g!=node_g.neibs.end();nei_g++){
@@ -286,17 +163,7 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
       // new links in graph
       if(j!=h){
         // distance calculation
-        float d = dist(new_node,graph[j],w,method);
-        // collision detection
-        // if(priority_queue.find(d)!=priority_queue.end()){
-        //   //Rcout << "collision" << std::endl;
-        //   d=d+collision_eps;
-        // }
-        // auto nei = graph[i].neibs.find(j);
-        // if(nei!=graph[i].neibs.end()){
-        //   //Rcout << "link already exist : "<< i << "-" << nei->first << ":" <<nei->second <<std::endl;
-        //   d = nei->second;
-        // }
+        float d = method->dist(new_node,graph[j]);
         new_node.neibs.insert(std::make_pair(j,d));
         graph[j].neibs.insert(std::make_pair(node_id,d));
       }
@@ -328,16 +195,7 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
       // new links in graphs
       if(j!=g){
         
-        float d = dist(new_node,graph[j],w,method);
-        // if(priority_queue.find(d)!=priority_queue.end()){
-        //   //Rcout << "collision" << std::endl;
-        //   d=d+collision_eps;
-        // }
-        // auto nei = graph[i].neibs.find(j);
-        // if(nei!=graph[i].neibs.end()){
-        //   //Rcout << "link already exist : "<< i << "-" << nei->first << ":" <<nei->second <<std::endl;
-        //   d = nei->second;
-        // }
+        float d = method->dist(new_node,graph[j]);
         new_node.neibs.insert(std::make_pair(j,d));
         graph[j].neibs.insert(std::make_pair(node_id,d));
       }
@@ -356,28 +214,17 @@ List hclustcc_cpp(List nb,NumericMatrix X,String method) {
     }
 
   }
-  
-  
-  
-  
   // Export Centers
   NumericMatrix centers(V-1,X.ncol());
-  NumericVector r(V-1);
-  NumericVector Ll(V-1);
-  NumericVector Lt(V-1);
   for(int i=V;i<(2*V-1);i++){
     node cnode = graph[i];
     centers(i-V,_)=cnode.x;
-    if(method=="bayesmom"){
-      r(i-V)=cnode.r;
-      Ll(i-V)=cnode.L;
-      Lt(i-V)=cnode.Lt;
-    }
   }
   CharacterVector ch = colnames(X);
   colnames(centers) = ch;
+  delete method;
 
-  return List::create(Named("merge",merge),Named("height",height),Named("data",X),Named("centers",centers),Named("teststatistic",r),Named("Ll",Ll),Named("Lt",Lt));
+  return List::create(Named("merge",merge),Named("height",height),Named("data",X),Named("centers",centers));
   
 }
 

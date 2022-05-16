@@ -220,8 +220,18 @@ geohclust_poly=function(df,method="ward",adjacency="rook",scaling="raw"){
 geohclust_graph = function(adjacencies_list,df,method="ward",scaling="raw"){
   
   
-  if(!(method %in% c("ward","centroid","median","chi2","bayesmom"))){
-    stop("The method argument must be ward, centroid or median.")
+  if(is.character(method) & !(method %in% c("ward","centroid","median","chi2","bayesmom"))){
+    stop("'method' not recognized")
+  }
+  
+  
+  if (is.character(method)) 
+    method <- get(paste0("gtmethod_",method), mode = "function", envir = parent.frame())
+  if (is.function(method)) 
+    method <- method()
+  if (is.null(method$method)) {
+    print(method)
+    stop("'method' not recognized")
   }
   
   if(!(scaling %in% c("zscore","raw"))){
@@ -379,6 +389,54 @@ build_geotree=function(merge,df){
     geotree[[i]] = sf::st_union(left,right)
   }
   geotree
+}
+
+
+
+#' @title ward method for gtclust
+#' @return An object of class gtmethod
+#' @describeIn gtmethod
+#' @export
+gtmethod_ward = function(){
+  structure(list(method = "ward"), 
+            class = "gtmethod")
+}
+
+#' @title ward method for gtclust
+#' @return An object of class gtmethod
+#' @describeIn gtmethod
+#' @export
+gtmethod_centroid = function(){
+  structure(list(method = "centroid"), 
+            class = "gtmethod")
+}
+
+#' @title ward method for gtclust
+#' @return An object of class gtmethod
+#' @describeIn gtmethod
+#' @export
+gtmethod_median = function(){
+  structure(list(method = "median"), 
+            class = "gtmethod")
+}
+
+#' @title ward method for gtclust
+#' @return An object of class gtmethod
+#' @describeIn gtmethod
+#' @export
+gtmethod_chisq = function(){
+  structure(list(method = "chisq"), 
+            class = "gtmethod")
+}
+
+#' @title ward method for gtclust
+#' @param beta prior parameters for the dirichlet
+#' @return An object of class gtmethod
+#' @describeIn gtmethod
+#' @export
+gtmethod_bayes_mom = function(beta = 1){
+  structure(list(method = "bayes_mom",beta = beta), 
+            class = "gtmethod")
 }
 
 
